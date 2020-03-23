@@ -1,0 +1,16 @@
+apiVersion : apps/v1beta1
+kind: Deployment
+metadata:
+  name: "anotheracrtest"
+spec:
+  replicas: 2
+  template:
+    metadata:
+      labels:
+        app: "anotheracrtest"
+    spec:
+      containers:
+        - name: "anotheracrtest"
+          image: "adminenabled.azurecr.io/anotheracrtest"
+          ports:
+          - containerPort: 3000
