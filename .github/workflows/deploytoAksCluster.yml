@@ -1,0 +1,50 @@
+on: [push]
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@master
+    
+    - uses: azure/docker-login@v1
+      with:
+        login-server: adminenabled.azurecr.io
+        username: ${{ secrets.acr_adminenabled_username }}
+        password: ${{ secrets.acr_adminenabled_password }}
+    
+    - name: Build and push image to ACR
+      id: build-image
+      run: |
+        docker build "$GITHUB_WORKSPACE/Application" -f  "Application/Dockerfile" -t adminenabled.azurecr.io/anotheracrtest:${{ github.sha }}
+        docker push adminenabled.azurecr.io/anotheracrtest:${{ github.sha }}
+    
+    - uses: azure/k8s-set-context@v1
+      with:
+         kubeconfig: ${{ secrets.aks_anotheracrtest_kubeConfig }}
+      id: login
+    
+    - name: Create namespace
+      run: |
+        namespacePresent=`kubectl get namespace | grep anotheracrtest75fc | wc -l`
+        if [ $namespacePresent -eq 0 ]
+        then
+            echo `kubectl create namespace anotheracrtest75fc`
+        fi
+
+    - uses: azure/k8s-create-secret@v1
+      with:
+        namespace: anotheracrtest75fc
+        container-registry-url: adminenabled.azurecr.io
+        container-registry-username: ${{ secrets.acr_adminenabled_username }}
+        container-registry-password: ${{ secrets.acr_adminenabled_password }}
+        secret-name: anotheracrtedockerauth
+       
+    - uses: azure/k8s-deploy@v1
+      with:
+        namespace: anotheracrtest75fc
+        manifests: |
+          manifests/deployment.yml
+          manifests/service.yml
+        images: |
+          adminenabled.azurecr.io/anotheracrtest:${{ github.sha }}
+        imagepullsecrets: |
+          anotheracrtedockerauth
